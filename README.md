@@ -1,3 +1,13 @@
+---
+title: Mood Librarian
+emoji: 📚
+colorFrom: indigo
+colorTo: purple
+sdk: docker
+app_port: 7860
+pinned: false
+---
+
 # Mood Librarian Agent — Bibliothécaire de l'Humeur
 
 An agentic AI that recommends literary works based on the user's mood. The user
