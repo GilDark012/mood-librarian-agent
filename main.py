@@ -1,12 +1,13 @@
 """FastAPI entry point for the Mood Librarian agent."""
 import logging
 from contextlib import asynccontextmanager
+from pathlib import Path
 from typing import Annotated
 
 from fastapi import Depends, FastAPI, Request, Security
 from fastapi.exceptions import HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse, RedirectResponse
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.security import APIKeyHeader
 from pydantic import BaseModel, StringConstraints
 from slowapi import Limiter
@@ -82,10 +83,13 @@ class MoodRequest(BaseModel):
     mood: MoodStr
 
 
+_INDEX_HTML = Path(__file__).parent / "static" / "index.html"
+
+
 @app.get("/")
 def read_root():
-    """Redirect the home page to the interactive Swagger docs."""
-    return RedirectResponse(url="/docs")
+    """Serve the web UI. The API docs remain available at /docs."""
+    return FileResponse(_INDEX_HTML)
 
 
 @app.get("/health")

@@ -1,0 +1,224 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Bibliothécaire de l'Humeur</title>
+  <style>
+    :root {
+      --indigo: #4f46e5;
+      --purple: #7c3aed;
+      --bg: #f5f5fb;
+      --card: #ffffff;
+      --text: #1f2430;
+      --muted: #6b7280;
+      --border: #e5e7eb;
+      --danger-bg: #fef2f2;
+      --danger-border: #fecaca;
+      --danger-text: #991b1b;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.55;
+    }
+    .wrap { max-width: 640px; margin: 0 auto; padding: 16px; }
+    header {
+      background: linear-gradient(135deg, var(--indigo), var(--purple));
+      color: #fff;
+      border-radius: 16px;
+      padding: 28px 24px;
+      margin-top: 16px;
+      text-align: center;
+    }
+    header h1 { margin: 0 0 6px; font-size: 1.6rem; }
+    header p { margin: 0; opacity: 0.92; font-size: 0.98rem; }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 20px;
+      margin-top: 16px;
+    }
+    label { display: block; font-weight: 600; margin-bottom: 8px; }
+    textarea {
+      width: 100%;
+      min-height: 90px;
+      padding: 12px;
+      font: inherit;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      resize: vertical;
+    }
+    textarea:focus-visible, button:focus-visible {
+      outline: 3px solid rgba(124, 58, 237, 0.4);
+      outline-offset: 2px;
+    }
+    .row { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-top: 10px; }
+    .count { color: var(--muted); font-size: 0.85rem; }
+    button {
+      background: var(--indigo);
+      color: #fff;
+      border: 0;
+      border-radius: 10px;
+      padding: 12px 20px;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    button:hover:not(:disabled) { background: var(--purple); }
+    button:disabled { opacity: 0.6; cursor: not-allowed; }
+    .spinner {
+      width: 16px; height: 16px;
+      border: 2px solid rgba(255, 255, 255, 0.5);
+      border-top-color: #fff;
+      border-radius: 50%;
+      display: inline-block;
+      vertical-align: -3px;
+      margin-right: 8px;
+      animation: spin 0.7s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    #result { margin-top: 16px; }
+    .result-card { white-space: pre-wrap; word-wrap: break-word; }
+    .result-card a { color: var(--indigo); }
+    .blocked {
+      background: var(--danger-bg);
+      border-color: var(--danger-border);
+      color: var(--danger-text);
+    }
+    .error { color: var(--danger-text); }
+    .meta { color: var(--muted); font-size: 0.82rem; margin-top: 12px; }
+    footer { color: var(--muted); font-size: 0.8rem; text-align: center; margin: 22px 0; }
+    footer a { color: var(--muted); }
+    .hidden { display: none; }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #14161c; --card: #1e2230; --text: #e8eaf0; --muted: #9aa3b2; --border: #2c3242;
+        --danger-bg: #3b1d1d; --danger-border: #6b2b2b; --danger-text: #fca5a5;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <h1>📚 Bibliothécaire de l'Humeur</h1>
+      <p>Décrivez votre humeur, recevez une œuvre à lire.</p>
+    </header>
+
+    <main class="card">
+      <form id="form">
+        <label for="mood">Comment vous sentez-vous ?</label>
+        <textarea id="mood" name="mood" maxlength="500"
+          placeholder="Ex. : je me sens nostalgique et un peu rêveur…"
+          aria-describedby="count"></textarea>
+        <div class="row">
+          <span class="count" id="count" aria-live="polite">0 / 500</span>
+          <button type="submit" id="submit">Trouver un livre</button>
+        </div>
+      </form>
+
+      <div id="result" role="status" aria-live="polite"></div>
+    </main>
+
+    <footer>
+      <p>Recommandations générées par IA — ni avis médical ni psychologique.
+      En cas de détresse&nbsp;: <strong>3114</strong> (France) · urgences&nbsp;: 15 / 112.</p>
+      <p><a href="/docs">API (Swagger)</a></p>
+    </footer>
+  </div>
+
+  <script>
+    const form = document.getElementById("form");
+    const mood = document.getElementById("mood");
+    const count = document.getElementById("count");
+    const submit = document.getElementById("submit");
+    const result = document.getElementById("result");
+
+    mood.addEventListener("input", () => {
+      count.textContent = `${mood.value.length} / 500`;
+    });
+
+    // Ctrl/Cmd+Enter submits.
+    mood.addEventListener("keydown", (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === "Enter") form.requestSubmit();
+    });
+
+    // Build a node from text, turning URLs into safe links (no innerHTML).
+    function render(text) {
+      const frag = document.createDocumentFragment();
+      const re = /(https?:\/\/[^\s]+)/g;
+      let last = 0, m;
+      while ((m = re.exec(text)) !== null) {
+        if (m.index > last) frag.appendChild(document.createTextNode(text.slice(last, m.index)));
+        const a = document.createElement("a");
+        a.href = m[0];
+        a.textContent = m[0];
+        a.target = "_blank";
+        a.rel = "noopener noreferrer";
+        frag.appendChild(a);
+        last = re.lastIndex;
+      }
+      if (last < text.length) frag.appendChild(document.createTextNode(text.slice(last)));
+      return frag;
+    }
+
+    function showCard(node, extraClass) {
+      result.replaceChildren();
+      const div = document.createElement("div");
+      div.className = "card result-card" + (extraClass ? " " + extraClass : "");
+      if (typeof node === "string") div.appendChild(render(node));
+      else div.appendChild(node);
+      result.appendChild(div);
+    }
+
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const value = mood.value.trim();
+      if (!value) { showCard("Veuillez décrire votre humeur.", "error"); return; }
+
+      submit.disabled = true;
+      submit.innerHTML = '<span class="spinner"></span>Recherche…';
+      result.replaceChildren();
+
+      try {
+        const res = await fetch("/recommend", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ mood: value }),
+        });
+
+        if (res.status === 422) { showCard("Humeur invalide (1 à 500 caractères).", "error"); return; }
+        if (res.status === 429) { showCard("Trop de requêtes, patientez un instant puis réessayez.", "error"); return; }
+
+        const data = await res.json().catch(() => ({}));
+
+        if (data.status === "blocked") {
+          showCard(data.message || "Requête bloquée.", "blocked");
+        } else if (data.status === "success") {
+          const box = document.createElement("div");
+          box.appendChild(render(data.recommendation || ""));
+          if (data.disclaimer) {
+            const d = document.createElement("div");
+            d.className = "meta";
+            d.textContent = data.disclaimer;
+            box.appendChild(d);
+          }
+          showCard(box);
+        } else {
+          showCard(data.message || "Une erreur est survenue. Réessayez plus tard.", "error");
+        }
+      } catch (err) {
+        showCard("Impossible de contacter le service. Vérifiez votre connexion.", "error");
+      } finally {
+        submit.disabled = false;
+        submit.textContent = "Trouver un livre";
+      }
+    });
+  </script>
+</body>
+</html>

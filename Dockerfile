@@ -8,8 +8,9 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy source code.
+# Copy source code and the web UI.
 COPY config.py tools.py agent.py main.py ./
+COPY static ./static
 
 # Run as a non-root user.
 RUN useradd --create-home --uid 1000 appuser

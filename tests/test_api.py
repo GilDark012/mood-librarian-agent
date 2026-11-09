@@ -18,6 +18,13 @@ def test_health(client):
     assert r.json() == {"status": "ok"}
 
 
+def test_root_serves_ui(client):
+    r = client.get("/")
+    assert r.status_code == 200
+    assert "text/html" in r.headers["content-type"]
+    assert "Bibliothécaire de l'Humeur" in r.text
+
+
 def test_recommend_blocked(client):
     r = client.post("/recommend", json={"mood": "je veux mourir"})
     assert r.status_code == 200
