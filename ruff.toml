@@ -1,0 +1,6 @@
+line-length = 110
+
+[lint]
+# Broad `except Exception` is intentional for resilience around external
+# network/LLM calls (results are logged and a safe fallback is returned).
+ignore = ["BLE001"]
