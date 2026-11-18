@@ -43,7 +43,7 @@ All settings are read from environment variables / `.env` (see `.env.example`):
 | Variable          | Required | Default                     | Description                                           |
 |-------------------|----------|-----------------------------|-------------------------------------------------------|
 | `GROQ_API_KEY`    | yes      | —                           | Groq LLM API key.                                     |
-| `GROQ_MODEL`      | no       | `llama-3.3-70b-versatile`   | Model id.                                             |
+| `GROQ_MODEL`      | no       | `openai/gpt-oss-120b`       | Model id.                                             |
 | `GROQ_BASE_URL`   | no       | Groq OpenAI-compatible URL  | LLM endpoint.                                         |
 | `API_KEY`         | no       | _(empty = open)_            | If set, callers must send it in the `X-API-Key` header. |
 | `ALLOWED_ORIGINS` | no       | `*`                         | Comma-separated CORS origins.                         |
