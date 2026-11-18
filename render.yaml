@@ -1,0 +1,14 @@
+# Render Blueprint — deploys the app as a free Docker web service.
+# https://render.com/docs/blueprint-spec
+services:
+  - type: web
+    name: mood-librarian
+    runtime: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      # Set the actual value in the Render dashboard (kept out of git).
+      - key: GROQ_API_KEY
+        sync: false

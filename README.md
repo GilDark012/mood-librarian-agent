@@ -1,13 +1,3 @@
----
-title: Mood Librarian
-emoji: 📚
-colorFrom: indigo
-colorTo: purple
-sdk: docker
-app_port: 7860
-pinned: false
----
-
 # Mood Librarian Agent — Bibliothécaire de l'Humeur
 
 An agentic AI that recommends literary works based on the user's mood. The user
@@ -44,7 +34,7 @@ cp .env.example .env   # then edit .env and add your GROQ_API_KEY
 uvicorn main:app --reload
 ```
 
-Open http://localhost:8000/ for the interactive Swagger docs.
+Open http://localhost:8000/ for the web UI (interactive API docs at `/docs`).
 
 ## Configuration
 
@@ -70,7 +60,7 @@ All settings are read from environment variables / `.env` (see `.env.example`):
 
 | Method | Endpoint     | Description                                              |
 |--------|--------------|----------------------------------------------------------|
-| GET    | `/`          | Redirects to the Swagger UI (`/docs`).                   |
+| GET    | `/`          | Web UI (the Swagger docs stay at `/docs`).               |
 | GET    | `/health`    | Health check.                                            |
 | POST   | `/recommend` | Body `{ "mood": "..." }` → recommendation. Needs `X-API-Key` if configured. |
 
@@ -96,11 +86,24 @@ CI runs linting and tests on every push/PR (`.github/workflows/ci.yml`).
 
 ```bash
 docker build -t mood-librarian .
-docker run -p 7860:7860 --env-file .env mood-librarian
+docker run -p 8000:8000 -e PORT=8000 --env-file .env mood-librarian
 ```
 
-The container runs as a non-root user and listens on `$PORT` (default `7860`,
-suitable for Hugging Face Spaces with SDK=docker).
+The container runs as a non-root user and binds `$PORT` (default `7860`).
+
+## Deploy (Render, free tier)
+
+The repo includes a [`render.yaml`](render.yaml) blueprint.
+
+1. Push the repo to GitHub (already done).
+2. On [render.com](https://render.com), **New → Blueprint**, connect this repo.
+   Render reads `render.yaml` and provisions a free Docker web service.
+3. Set the `GROQ_API_KEY` environment variable in the Render dashboard.
+4. Deploy. Your app is served at `https://<service>.onrender.com`.
+
+**Keep it warm:** the free tier sleeps after ~15 min of inactivity (cold start
+~30–60 s). Add a free uptime monitor (e.g. UptimeRobot) that pings
+`https://<service>.onrender.com/health` every ~10 minutes.
 
 ## Project structure
 
@@ -110,9 +113,11 @@ suitable for Hugging Face Spaces with SDK=docker).
 ├── agent.py             # ReAct loop, safety guardrail, monitoring
 ├── tools.py             # search_literature, search_web_links
 ├── main.py              # FastAPI app (auth, CORS, rate limit, validation)
+├── static/index.html    # Web UI served at /
 ├── requirements.txt     # Runtime dependencies
 ├── requirements-dev.txt # Test/lint dependencies
 ├── Dockerfile           # Container build (non-root, $PORT)
+├── render.yaml          # Render deployment blueprint
 ├── tests/               # pytest suite
 ├── PRIVACY.md           # Privacy notice (GDPR)
 ├── DISCLAIMER.md        # AI + crisis disclaimer

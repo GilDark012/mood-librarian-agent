@@ -1,5 +1,5 @@
 # Container image for the Mood Librarian API.
-# Hugging Face Spaces (SDK=docker) expects the app on port 7860.
+# The app binds $PORT (default 7860); hosts like Render inject their own $PORT.
 FROM python:3.11-slim
 
 WORKDIR /app
@@ -16,7 +16,7 @@ COPY static ./static
 RUN useradd --create-home --uid 1000 appuser
 USER appuser
 
-# Port (7860 for Hugging Face Spaces; override with $PORT elsewhere).
+# Default port; hosting platforms override $PORT at runtime.
 ENV PORT=7860
 EXPOSE 7860
 

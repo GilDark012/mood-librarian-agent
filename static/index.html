@@ -91,6 +91,7 @@
       color: var(--danger-text);
     }
     .error { color: var(--danger-text); }
+    .waking { color: var(--muted); }
     .meta { color: var(--muted); font-size: 0.82rem; margin-top: 12px; }
     footer { color: var(--muted); font-size: 0.8rem; text-align: center; margin: 22px 0; }
     footer a { color: var(--muted); }
@@ -185,6 +186,11 @@
       submit.innerHTML = '<span class="spinner"></span>Recherche…';
       result.replaceChildren();
 
+      // Free hosting sleeps after inactivity; the first request may wake it.
+      const wakeTimer = setTimeout(() => {
+        showCard("⏳ Le service se réveille (hébergement gratuit), cela peut prendre ~30 s…", "waking");
+      }, 4000);
+
       try {
         const res = await fetch("/recommend", {
           method: "POST",
@@ -215,6 +221,7 @@
       } catch (err) {
         showCard("Impossible de contacter le service. Vérifiez votre connexion.", "error");
       } finally {
+        clearTimeout(wakeTimer);
         submit.disabled = false;
         submit.textContent = "Trouver un livre";
       }
