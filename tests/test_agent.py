@@ -31,10 +31,16 @@ def test_forces_final_answer_when_loop_exhausts(monkeypatch):
 
     monkeypatch.setattr(agent.client.chat.completions, "create", fake_create)
     monkeypatch.setattr(agent, "search_literature", lambda *a, **k: "Titre: Candide")
-    monkeypatch.setattr(agent, "search_web_links", lambda *a, **k: "Aucun lien disponible.")
+    monkeypatch.setattr(agent, "search_reading_link", lambda *a, **k: "Aucun lien disponible.")
 
     out = agent.agent_handler("je me sens joyeux")
 
     assert out["status"] == "success"
     assert "Candide" in out["recommendation"]
     assert "interrompue" not in out["recommendation"].lower()
+
+
+def test_evaluate_response_rewards_link_and_justification():
+    good = "**Candide** — Voltaire. Idéal car léger. 📖 Lire : http://example.org"
+    assert agent.evaluate_response(good) >= 0.7
+    assert agent.evaluate_response("") == 0.0

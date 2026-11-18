@@ -13,7 +13,7 @@ tool-calling loop on top of a Groq-hosted LLM.
 - **ReAct agent loop** — the LLM reasons and calls tools iteratively (`agent.py`).
 - **Tools** (`tools.py`):
   - `search_literature` — finds works via the OpenLibrary API.
-  - `search_web_links` — finds reading links via DuckDuckGo search.
+  - `search_reading_link` — finds free read/borrow links via OpenLibrary + Internet Archive.
 - **Safety guardrail** — accent-insensitive detection of self-harm / crisis
   language, returning concrete crisis resources instead of a recommendation.
 - **Hardened API** — optional API-key auth, per-IP rate limiting, CORS control,
@@ -111,7 +111,7 @@ The repo includes a [`render.yaml`](render.yaml) blueprint.
 .
 ├── config.py            # Typed settings (.env)
 ├── agent.py             # ReAct loop, safety guardrail, monitoring
-├── tools.py             # search_literature, search_web_links
+├── tools.py             # search_literature, search_reading_link
 ├── main.py              # FastAPI app (auth, CORS, rate limit, validation)
 ├── static/index.html    # Web UI served at /
 ├── requirements.txt     # Runtime dependencies

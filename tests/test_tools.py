@@ -19,13 +19,20 @@ def test_search_literature_parses_results(monkeypatch):
     def fake_get(url, params=None, timeout=None):
         captured["params"] = params
         return _FakeResponse({"docs": [
-            {"title": "Candide", "author_name": ["Voltaire"]},
+            {
+                "title": "Candide",
+                "author_name": ["Voltaire"],
+                "first_publish_year": 1759,
+                "key": "/works/OL123W",
+            },
         ]})
 
     monkeypatch.setattr(tools.requests, "get", fake_get)
     out = tools.search_literature("espoir & joie")
 
     assert "Candide" in out and "Voltaire" in out
+    assert "1759" in out
+    assert "openlibrary.org/works/OL123W" in out
     # Query is passed via params so it is URL-encoded safely.
     assert captured["params"]["q"] == "espoir & joie"
 
@@ -39,14 +46,29 @@ def test_search_literature_handles_errors(monkeypatch):
     assert "Erreur" in out
 
 
-def test_search_web_links(monkeypatch):
-    class FakeDDGS:
-        def __init__(self, *args, **kwargs):
-            pass
+def test_search_reading_link_public_domain(monkeypatch):
+    def fake_get(url, params=None, timeout=None):
+        return _FakeResponse({"docs": [
+            {
+                "title": "Frankenstein",
+                "key": "/works/OL450063W",
+                "ia": ["frankenstein00shel"],
+                "ebook_access": "public",
+            },
+        ]})
 
-        def text(self, query, max_results=2):
-            return [{"title": "Lire Candide", "href": "https://example.org"}]
+    monkeypatch.setattr(tools.requests, "get", fake_get)
+    out = tools.search_reading_link("Frankenstein")
+    assert "archive.org/details/frankenstein00shel" in out
+    assert "Lecture gratuite" in out
 
-    monkeypatch.setattr(tools, "DDGS", FakeDDGS)
-    out = tools.search_web_links("Candide")
-    assert "example.org" in out
+
+def test_search_reading_link_no_ebook_falls_back_to_reference(monkeypatch):
+    def fake_get(url, params=None, timeout=None):
+        return _FakeResponse({"docs": [
+            {"title": "Roman récent", "key": "/works/OL9W", "ebook_access": "no_ebook"},
+        ]})
+
+    monkeypatch.setattr(tools.requests, "get", fake_get)
+    out = tools.search_reading_link("Roman récent")
+    assert "openlibrary.org/works/OL9W" in out

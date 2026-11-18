@@ -149,19 +149,26 @@
       if ((e.ctrlKey || e.metaKey) && e.key === "Enter") form.requestSubmit();
     });
 
-    // Build a node from text, turning URLs into safe links (no innerHTML).
+    // Build a node from text, turning **bold** into <strong> and URLs into
+    // safe links. Built with text nodes / elements only (no innerHTML).
     function render(text) {
       const frag = document.createDocumentFragment();
-      const re = /(https?:\/\/[^\s]+)/g;
+      const re = /\*\*(.+?)\*\*|(https?:\/\/[^\s]+)/g;
       let last = 0, m;
       while ((m = re.exec(text)) !== null) {
         if (m.index > last) frag.appendChild(document.createTextNode(text.slice(last, m.index)));
-        const a = document.createElement("a");
-        a.href = m[0];
-        a.textContent = m[0];
-        a.target = "_blank";
-        a.rel = "noopener noreferrer";
-        frag.appendChild(a);
+        if (m[1] !== undefined) {
+          const strong = document.createElement("strong");
+          strong.textContent = m[1];
+          frag.appendChild(strong);
+        } else {
+          const a = document.createElement("a");
+          a.href = m[2];
+          a.textContent = m[2];
+          a.target = "_blank";
+          a.rel = "noopener noreferrer";
+          frag.appendChild(a);
+        }
         last = re.lastIndex;
       }
       if (last < text.length) frag.appendChild(document.createTextNode(text.slice(last)));

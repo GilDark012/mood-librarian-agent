@@ -13,7 +13,7 @@ import unicodedata
 from openai import OpenAI
 
 from config import settings
-from tools import search_literature, search_web_links
+from tools import search_literature, search_reading_link
 
 logger = logging.getLogger(__name__)
 
@@ -87,8 +87,11 @@ TOOLS_SCHEMA = [
     {
         "type": "function",
         "function": {
-            "name": "search_web_links",
-            "description": "Recherche des liens web pour lire une œuvre spécifique.",
+            "name": "search_reading_link",
+            "description": (
+                "Cherche un lien pour lire ou emprunter gratuitement une œuvre en ligne "
+                "(OpenLibrary / Internet Archive). Renvoie sinon la fiche de référence de l'œuvre."
+            ),
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -125,22 +128,34 @@ def safety_check(user_input: str) -> bool:
     return bool(_SENSITIVE_WORDS & tokens)
 
 
+_JUSTIFICATION_CUES = (
+    "parce que", "car ", "puisque", "pourquoi", "idéal", "parfait",
+    "convient", "correspond", "reflète", "évoque", "résonne",
+)
+
+
 def evaluate_response(response: str) -> float:
-    """Basic quality heuristic (0..1): rewards a link and a justification."""
+    """Heuristic quality score (0..1) for monitoring.
+
+    Rewards: a reading/reference link, an explicit justification, and a
+    substantive (non-truncated) answer.
+    """
     score = 0.0
-    if "http" in response:
-        score += 0.5
     lowered = response.lower()
-    if "parce que" in lowered or "car" in lowered:
-        score += 0.5
-    return score
+    if "http" in response:
+        score += 0.4
+    if any(cue in lowered for cue in _JUSTIFICATION_CUES):
+        score += 0.3
+    if len(response) >= 120:
+        score += 0.3
+    return round(min(score, 1.0), 2)
 
 
 def _run_tool(name: str, args: dict, mood: str) -> str:
     if name == "search_literature":
         return search_literature(args.get("mood_keyword", mood))
-    if name == "search_web_links":
-        return search_web_links(args.get("work_title", ""))
+    if name == "search_reading_link":
+        return search_reading_link(args.get("work_title", ""))
     return "Outil inconnu."
 
 
@@ -161,14 +176,20 @@ def agent_handler(mood: str) -> dict:
         {
             "role": "system",
             "content": (
-                "Tu es un Bibliothécaire de l'Humeur. L'utilisateur décrit son état d'esprit. "
-                "Procède ainsi : "
-                "1. Utilise 'search_literature' pour trouver une œuvre adaptée à l'humeur. "
-                "2. Tu peux ensuite utiliser 'search_web_links' pour obtenir un lien de lecture. "
-                "Cet outil est FACULTATIF et peut échouer ou être lent : s'il ne renvoie pas de lien, "
-                "n'insiste pas, ne rappelle pas le même outil, et continue sans lien. "
-                "3. Rédige TOUJOURS une recommandation finale en français, en justifiant ton choix, "
-                "et en incluant le lien uniquement s'il est disponible."
+                "Tu es un Bibliothécaire de l'Humeur, chaleureux et cultivé. "
+                "L'utilisateur décrit son état d'esprit ; tu recommandes UNE œuvre à lire.\n"
+                "Procède ainsi :\n"
+                "1. Appelle 'search_literature' pour obtenir des candidats adaptés à l'humeur, "
+                "puis choisis l'œuvre la plus pertinente (pas forcément la première).\n"
+                "2. Tu peux appeler 'search_reading_link' UNE fois avec le titre choisi pour trouver "
+                "un lien de lecture gratuit. C'est FACULTATIF : s'il ne renvoie pas de lien, "
+                "n'insiste pas et ne le rappelle pas.\n"
+                "3. Rédige ta réponse finale en français, en Markdown, EXACTEMENT ainsi :\n"
+                "**<Titre>** — <Auteur>\n"
+                "Puis 2 à 3 phrases expliquant pourquoi cette œuvre correspond à l'humeur décrite.\n"
+                "Enfin une ligne « 📖 Lire : <lien> » si un lien gratuit existe ; sinon "
+                "« 📖 Où la trouver : <fiche OpenLibrary, bibliothèque ou librairie> ».\n"
+                "Reste bienveillant, concret et concis."
             ),
         },
         {"role": "user", "content": mood},

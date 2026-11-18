@@ -10,7 +10,7 @@ your mood that you submit to the `/recommend` endpoint.
 ## What data we process
 
 - **Your mood text.** It is sent to a third-party LLM provider (Groq) and to
-  search services (OpenLibrary, DuckDuckGo) to generate a recommendation.
+  the OpenLibrary book search API to generate a recommendation.
 - Mood descriptions can reveal information about your emotional or mental-health
   state, which may constitute **sensitive / special-category data** under the
   EU GDPR (Art. 9). We treat it accordingly.
@@ -27,7 +27,7 @@ your mood that you submit to the `/recommend` endpoint.
 Your mood text is transmitted to:
 
 - **Groq** — LLM inference (see Groq's privacy policy).
-- **OpenLibrary** and **DuckDuckGo** — search queries derived from the request.
+- **OpenLibrary** — book search queries derived from the request.
 
 We do not control how these providers process data; review their policies.
 
