@@ -21,3 +21,6 @@ ENV/
 # OS
 .DS_Store
 Thumbs.db
+
+# Internal / secret planning journal — never publish
+PROJECT_JOURNAL.md
