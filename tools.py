@@ -8,6 +8,7 @@ logger = logging.getLogger(__name__)
 
 OPENLIBRARY_URL = "https://openlibrary.org/search.json"
 HTTP_TIMEOUT = 5
+WEB_SEARCH_TIMEOUT = 5
 
 
 def search_literature(mood_keyword: str) -> str:
@@ -35,11 +36,14 @@ def search_literature(mood_keyword: str) -> str:
 
 
 def search_web_links(work_title: str) -> str:
-    """Search the web (DuckDuckGo) for links to read a given work online."""
+    """Best-effort web search (DuckDuckGo) for a reading link. May be slow or fail."""
     try:
-        results = DDGS().text(f"lire en ligne {work_title}", max_results=2)
+        results = DDGS(timeout=WEB_SEARCH_TIMEOUT).text(
+            f"lire en ligne {work_title}", max_results=2
+        )
         links = [f"{r['title']} - {r['href']}" for r in results]
-        return " | ".join(links) if links else "Aucun lien trouvé."
+        return " | ".join(links) if links else "Aucun lien disponible."
     except Exception as e:
         logger.warning("search_web_links failed: %s", e)
-        return "Erreur lors de la recherche web."
+        # Signal "no link" (not an error to retry) so the agent moves on.
+        return "Aucun lien disponible pour le moment."

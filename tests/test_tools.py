@@ -41,6 +41,9 @@ def test_search_literature_handles_errors(monkeypatch):
 
 def test_search_web_links(monkeypatch):
     class FakeDDGS:
+        def __init__(self, *args, **kwargs):
+            pass
+
         def text(self, query, max_results=2):
             return [{"title": "Lire Candide", "href": "https://example.org"}]
 

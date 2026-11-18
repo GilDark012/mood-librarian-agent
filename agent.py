@@ -162,10 +162,13 @@ def agent_handler(mood: str) -> dict:
             "role": "system",
             "content": (
                 "Tu es un Bibliothécaire de l'Humeur. L'utilisateur décrit son état d'esprit. "
-                "Tu DOIS procéder ainsi : "
+                "Procède ainsi : "
                 "1. Utilise 'search_literature' pour trouver une œuvre adaptée à l'humeur. "
-                "2. ENSUITE, utilise OBLIGATOIREMENT 'search_web_links' avec le titre de l'œuvre trouvée pour obtenir un lien de lecture. "
-                "3. Enfin, rédige ta recommandation en justifiant ton choix et en incluant le lien."
+                "2. Tu peux ensuite utiliser 'search_web_links' pour obtenir un lien de lecture. "
+                "Cet outil est FACULTATIF et peut échouer ou être lent : s'il ne renvoie pas de lien, "
+                "n'insiste pas, ne rappelle pas le même outil, et continue sans lien. "
+                "3. Rédige TOUJOURS une recommandation finale en français, en justifiant ton choix, "
+                "et en incluant le lien uniquement s'il est disponible."
             ),
         },
         {"role": "user", "content": mood},
@@ -206,10 +209,31 @@ def agent_handler(mood: str) -> dict:
                     "content": result,
                 })
         else:
-            # Loop exhausted without a tool-free final answer.
-            final_content = "Voici ce que j'ai trouvé : " + (
-                (response_message.content if response_message else None) or "Recherche interrompue."
-            )
+            # Loop exhausted: force a final recommendation with no further tools,
+            # so a flaky/slow search never costs the user an answer.
+            nudge = {
+                "role": "user",
+                "content": (
+                    "Conclus maintenant : recommande une œuvre adaptée à mon humeur en "
+                    "justifiant ton choix, en incluant le lien de lecture uniquement s'il "
+                    "est déjà disponible. N'appelle plus aucun outil."
+                ),
+            }
+            try:
+                final_resp = client.chat.completions.create(
+                    model=settings.groq_model,
+                    messages=messages + [nudge],
+                )
+                if final_resp.usage:
+                    total_tokens += final_resp.usage.total_tokens
+                final_content = final_resp.choices[0].message.content or ""
+            except Exception:
+                logger.exception("final-answer call failed")
+                final_content = ""
+            if not final_content:
+                final_content = (
+                    "Désolé, je n'ai pas réussi à finaliser une recommandation. Veuillez réessayer."
+                )
 
         eval_score = evaluate_response(final_content)
         latency = round(time.time() - t0, 3)
