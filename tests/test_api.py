@@ -3,6 +3,7 @@ from types import SimpleNamespace
 
 import agent
 import config
+import main
 
 
 def _fake_completion(content):
@@ -53,6 +54,32 @@ def test_empty_mood_rejected(client):
 
 def test_too_long_mood_rejected(client):
     r = client.post("/recommend", json={"mood": "x" * 5000})
+    assert r.status_code == 422
+
+
+def test_journey_success(client, monkeypatch):
+    monkeypatch.setattr(
+        main, "journey_handler",
+        lambda current, desired="": {
+            "status": "success", "journey": "**Étape 1 — ...**",
+            "disclaimer": "x", "metrics": {"stages": 2},
+        },
+    )
+    r = client.post("/journey", json={"current_mood": "triste", "desired_mood": "mieux"})
+    assert r.status_code == 200
+    assert r.json()["status"] == "success"
+    assert "journey" in r.json()
+
+
+def test_journey_blocks_crisis(client):
+    # Real handler; safety short-circuits (no LLM call).
+    r = client.post("/journey", json={"current_mood": "je veux en finir"})
+    assert r.status_code == 200
+    assert r.json()["status"] == "blocked"
+
+
+def test_journey_requires_current_mood(client):
+    r = client.post("/journey", json={"current_mood": "   "})
     assert r.status_code == 422
 
 

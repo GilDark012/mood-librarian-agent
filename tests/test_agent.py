@@ -43,3 +43,37 @@ def test_evaluate_response_rewards_link_and_justification():
     good = "**Candide** — Voltaire. Idéal car léger. 📖 Lire : http://example.org"
     assert agent.evaluate_response(good) >= 0.7
     assert agent.evaluate_response("") == 0.0
+
+
+def test_journey_handler_builds_ordered_pathway(monkeypatch):
+    calls = {"n": 0}
+
+    def fake_create(**kwargs):
+        calls["n"] += 1
+        if calls["n"] == 1:  # planning call -> JSON arc
+            return _text_response(
+                '{"stages":[{"label":"Accueillir","search_query":"melancolie","note":"a"},'
+                '{"label":"Avancer","search_query":"espoir","note":"b"}]}'
+            )
+        return _text_response(  # compose call -> markdown journey
+            "**Étape 1 — Accueillir**\n**Mushishi** — Urushibara · Seinen · ⭐ 8.7/10\n"
+            "📖 Fiche : https://myanimelist.net/manga/2367"
+        )
+
+    monkeypatch.setattr(agent.client.chat.completions, "create", fake_create)
+    monkeypatch.setattr(
+        agent, "search_manga",
+        lambda *a, **k: "Titre: Mushishi | Fiche: https://myanimelist.net/manga/2367",
+    )
+
+    out = agent.journey_handler("je me sens triste", "je veux de l'espoir")
+    assert out["status"] == "success"
+    assert out["metrics"]["stages"] == 2
+    assert "Mushishi" in out["journey"]
+
+
+def test_journey_blocks_crisis_in_desired_mood():
+    # Safety must check the desired-mood field too; short-circuits before any LLM call.
+    out = agent.journey_handler("je vais bien", "je veux en finir")
+    assert out["status"] == "blocked"
+    assert "3114" in out["message"]
