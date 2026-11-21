@@ -1,5 +1,8 @@
 # Mood Librarian Agent — Bibliothécaire de l'Humeur
 
+[![CI](https://github.com/GilDark012/mood-librarian-agent/actions/workflows/ci.yml/badge.svg)](https://github.com/GilDark012/mood-librarian-agent/actions/workflows/ci.yml)
+[![Live](https://img.shields.io/badge/live-mood--librarian.onrender.com-4f46e5)](https://mood-librarian.onrender.com)
+
 An agentic AI that recommends **manga** based on the user's mood — and explains
 *why*, pointing to a specific moment worth reading for. The guiding idea: manga
 aren't only for children. The user describes how they feel, and the agent picks
@@ -107,6 +110,16 @@ The repo includes a [`render.yaml`](render.yaml) blueprint.
 **Keep it warm:** the free tier sleeps after ~15 min of inactivity (cold start
 ~30–60 s). Add a free uptime monitor (e.g. UptimeRobot) that pings
 `https://<service>.onrender.com/health` every ~10 minutes.
+
+## Branching & deployment
+
+- **`main`** is the **production** branch — it is exactly what's deployed at
+  <https://mood-librarian.onrender.com>. Render auto-deploys every push to `main`.
+- **`dev`** and short-lived **feature branches** hold work in progress.
+- Flow: branch off `dev` → open a **pull request** into `main` → CI (ruff + pytest)
+  runs → merge once green → Render deploys automatically.
+- `main` is protected: a pull request with passing CI is required before changes
+  reach production.
 
 ## Project structure
 
