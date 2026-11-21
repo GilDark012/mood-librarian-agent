@@ -33,7 +33,7 @@ class Settings(BaseSettings):
     # --- Request limits / reliability ---
     max_mood_length: int = Field(default=500, ge=1)
     request_timeout: float = Field(default=30.0, gt=0)
-    max_agent_steps: int = Field(default=5, ge=1)
+    max_agent_steps: int = Field(default=3, ge=1)
 
     @property
     def origins_list(self) -> list[str]:
