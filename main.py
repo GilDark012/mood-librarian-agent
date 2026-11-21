@@ -14,7 +14,7 @@ from slowapi import Limiter
 from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
 
-from agent import DISCLAIMER, agent_handler
+from agent import DISCLAIMER, agent_handler, journey_handler
 from config import settings
 
 logging.basicConfig(level=logging.INFO)
@@ -83,6 +83,13 @@ class MoodRequest(BaseModel):
     mood: MoodStr
 
 
+class JourneyRequest(BaseModel):
+    current_mood: MoodStr
+    desired_mood: Annotated[
+        str, StringConstraints(strip_whitespace=True, max_length=settings.max_mood_length)
+    ] = ""
+
+
 _INDEX_HTML = Path(__file__).parent / "static" / "index.html"
 
 
@@ -101,6 +108,15 @@ def health_check():
 @limiter.limit(settings.rate_limit)
 def recommend_books(request: Request, body: MoodRequest):
     result = agent_handler(body.mood)
+    if result.get("status") == "error":
+        return JSONResponse(status_code=502, content=result)
+    return result
+
+
+@app.post("/journey", dependencies=[Depends(require_api_key)])
+@limiter.limit(settings.rate_limit)
+def mood_journey(request: Request, body: JourneyRequest):
+    result = journey_handler(body.current_mood, body.desired_mood)
     if result.get("status") == "error":
         return JSONResponse(status_code=502, content=result)
     return result

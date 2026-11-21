@@ -93,6 +93,10 @@
     .error { color: var(--danger-text); }
     .waking { color: var(--muted); }
     .pill { display: inline-block; padding: 0 8px; border-radius: 999px; background: rgba(99,91,255,0.14); font-size: 0.82em; white-space: nowrap; }
+    .modes { display: flex; gap: 8px; margin-bottom: 14px; }
+    .mode { width: auto; background: transparent; color: var(--muted); border: 1px solid var(--border); border-radius: 999px; padding: 6px 14px; font-size: 0.92rem; }
+    .mode.active { background: var(--indigo); color: #fff; border-color: var(--indigo); }
+    #target-wrap { margin-top: 12px; }
     .meta { color: var(--muted); font-size: 0.82rem; margin-top: 12px; }
     footer { color: var(--muted); font-size: 0.8rem; text-align: center; margin: 22px 0; }
     footer a { color: var(--muted); }
@@ -113,11 +117,20 @@
     </header>
 
     <main class="card">
+      <div class="modes" role="group" aria-label="Mode">
+        <button type="button" class="mode active" id="mode-reco" aria-pressed="true">Un manga</button>
+        <button type="button" class="mode" id="mode-journey" aria-pressed="false">Parcours d'humeur</button>
+      </div>
       <form id="form">
-        <label for="mood">Comment vous sentez-vous ?</label>
+        <label for="mood" id="mood-label">Comment vous sentez-vous ?</label>
         <textarea id="mood" name="mood" maxlength="500"
           placeholder="Ex. : je me sens nostalgique et un peu rêveur…"
           aria-describedby="count"></textarea>
+        <div id="target-wrap" class="hidden">
+          <label for="target">Où aimeriez-vous arriver ? (optionnel)</label>
+          <textarea id="target" maxlength="500"
+            placeholder="Ex. : retrouver de la sérénité et de l'élan…"></textarea>
+        </div>
         <div class="row">
           <span class="count" id="count" aria-live="polite">0 / 500</span>
           <button type="submit" id="submit">Trouver un manga</button>
@@ -137,9 +150,32 @@
   <script>
     const form = document.getElementById("form");
     const mood = document.getElementById("mood");
+    const target = document.getElementById("target");
+    const targetWrap = document.getElementById("target-wrap");
+    const moodLabel = document.getElementById("mood-label");
+    const modeReco = document.getElementById("mode-reco");
+    const modeJourney = document.getElementById("mode-journey");
     const count = document.getElementById("count");
     const submit = document.getElementById("submit");
     const result = document.getElementById("result");
+
+    let mode = "reco";
+    function setMode(m) {
+      mode = m;
+      const journey = m === "journey";
+      modeReco.classList.toggle("active", !journey);
+      modeJourney.classList.toggle("active", journey);
+      modeReco.setAttribute("aria-pressed", String(!journey));
+      modeJourney.setAttribute("aria-pressed", String(journey));
+      targetWrap.classList.toggle("hidden", !journey);
+      moodLabel.textContent = journey
+        ? "Comment vous sentez-vous maintenant ?"
+        : "Comment vous sentez-vous ?";
+      submit.textContent = journey ? "Construire mon parcours" : "Trouver un manga";
+      result.replaceChildren();
+    }
+    modeReco.addEventListener("click", () => setMode("reco"));
+    modeJourney.addEventListener("click", () => setMode("journey"));
 
     mood.addEventListener("input", () => {
       count.textContent = `${mood.value.length} / 500`;
@@ -195,8 +231,15 @@
       const value = mood.value.trim();
       if (!value) { showCard("Veuillez décrire votre humeur.", "error"); return; }
 
+      const journey = mode === "journey";
+      const endpoint = journey ? "/journey" : "/recommend";
+      const body = journey
+        ? { current_mood: value, desired_mood: target.value.trim() }
+        : { mood: value };
+      const idleLabel = journey ? "Construire mon parcours" : "Trouver un manga";
+
       submit.disabled = true;
-      submit.innerHTML = '<span class="spinner"></span>Recherche…';
+      submit.innerHTML = `<span class="spinner"></span>${journey ? "Construction…" : "Recherche…"}`;
       result.replaceChildren();
 
       // Free hosting sleeps after inactivity; the first request may wake it.
@@ -205,10 +248,10 @@
       }, 4000);
 
       try {
-        const res = await fetch("/recommend", {
+        const res = await fetch(endpoint, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ mood: value }),
+          body: JSON.stringify(body),
         });
 
         if (res.status === 422) { showCard("Humeur invalide (1 à 500 caractères).", "error"); return; }
@@ -220,7 +263,7 @@
           showCard(data.message || "Requête bloquée.", "blocked");
         } else if (data.status === "success") {
           const box = document.createElement("div");
-          box.appendChild(render(data.recommendation || ""));
+          box.appendChild(render(journey ? (data.journey || "") : (data.recommendation || "")));
           if (data.disclaimer) {
             const d = document.createElement("div");
             d.className = "meta";
@@ -236,7 +279,7 @@
       } finally {
         clearTimeout(wakeTimer);
         submit.disabled = false;
-        submit.textContent = "Trouver un manga";
+        submit.textContent = idleLabel;
       }
     });
   </script>
