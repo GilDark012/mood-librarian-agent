@@ -194,7 +194,9 @@ def agent_handler(mood: str) -> dict:
                 "- Pourquoi toi, maintenant : 1 à 2 phrases COURTES reliant le manga à l'humeur décrite.\n"
                 "- Le moment à guetter : 1 à 2 phrases sur UN moment, arc ou scène PRÉCIS, et l'émotion qu'il "
                 "procure (jamais un simple résumé de l'intrigue).\n"
-                "- 📖 Fiche : copie EXACTEMENT le lien renvoyé par l'outil, sans jamais modifier l'URL.\n"
+                "- 📖 Fiche : <lien> — OBLIGATOIRE pour chaque manga. Copie EXACTEMENT le lien renvoyé par "
+                "l'outil ; ne modifie jamais l'URL et ne l'omets JAMAIS.\n"
+                "Chaque manga retenu DOIT se terminer par sa ligne « 📖 Fiche : » avec le lien exact. "
                 "Reste concret, bienveillant et CONCIS. Ne donne jamais seulement un synopsis. "
                 "Tu peux terminer par UNE courte ligne optionnelle suggérant un livre (via 'search_literature')."
             ),
