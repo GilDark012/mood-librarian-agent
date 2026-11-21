@@ -10,6 +10,7 @@ All use reliable JSON APIs (not web scraping) so they behave consistently
 in production.
 """
 import logging
+import time
 
 import requests
 
@@ -18,6 +19,7 @@ logger = logging.getLogger(__name__)
 OPENLIBRARY_URL = "https://openlibrary.org/search.json"
 JIKAN_URL = "https://api.jikan.moe/v4/manga"
 HTTP_TIMEOUT = 6
+JIKAN_RETRY_WAIT = 0.6  # Jikan rate-limits aggressively; back off and retry once.
 
 
 def search_manga(query: str) -> str:
@@ -28,17 +30,28 @@ def search_manga(query: str) -> str:
     (shounen/seinen/...), genres, MAL score + vote count, link and a short
     synopsis — enough for the agent to pick on mood-fit and justify the choice.
     """
-    try:
-        res = requests.get(
-            JIKAN_URL,
-            params={"q": query, "limit": 6, "sfw": "true"},
-            timeout=HTTP_TIMEOUT,
-        )
-        res.raise_for_status()
-        data = res.json().get("data", [])
-        if not data:
-            return "Aucun manga correspondant trouvé."
+    data = None
+    for attempt in range(2):
+        try:
+            res = requests.get(
+                JIKAN_URL,
+                params={"q": query, "limit": 6, "sfw": "true"},
+                timeout=HTTP_TIMEOUT,
+            )
+            res.raise_for_status()
+            data = res.json().get("data", [])
+            break
+        except Exception as e:
+            logger.warning("search_manga attempt %s failed: %s", attempt + 1, e)
+            if attempt == 0:
+                time.sleep(JIKAN_RETRY_WAIT)
 
+    if data is None:
+        return "Recherche manga indisponible pour le moment."
+    if not data:
+        return "Aucun manga correspondant trouvé."
+
+    try:
         # Prefer well-known titles (more members ~ more reliable + less obscure).
         data.sort(key=lambda m: (m.get("members") or 0), reverse=True)
 
