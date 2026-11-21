@@ -13,7 +13,7 @@ import unicodedata
 from openai import OpenAI
 
 from config import settings
-from tools import search_literature, search_reading_link
+from tools import search_literature, search_manga
 
 logger = logging.getLogger(__name__)
 
@@ -73,31 +73,34 @@ TOOLS_SCHEMA = [
     {
         "type": "function",
         "function": {
-            "name": "search_literature",
-            "description": "Recherche des œuvres littéraires correspondant à une humeur ou émotion.",
+            "name": "search_manga",
+            "description": (
+                "Recherche/vérifie un manga sur MyAnimeList et renvoie démographie, genres, "
+                "note et lien. Passe un titre précis ou un mot-clé lié à l'humeur."
+            ),
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "mood_keyword": {"type": "string", "description": "Mot-clé représentant l'humeur"}
+                    "query": {"type": "string", "description": "Titre de manga ou mot-clé lié à l'humeur"}
                 },
-                "required": ["mood_keyword"],
+                "required": ["query"],
             },
         },
     },
     {
         "type": "function",
         "function": {
-            "name": "search_reading_link",
+            "name": "search_literature",
             "description": (
-                "Cherche un lien pour lire ou emprunter gratuitement une œuvre en ligne "
-                "(OpenLibrary / Internet Archive). Renvoie sinon la fiche de référence de l'œuvre."
+                "Secondaire : recherche un LIVRE (roman) correspondant à une humeur, via "
+                "OpenLibrary. À n'utiliser que pour une suggestion livre optionnelle en fin de réponse."
             ),
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "work_title": {"type": "string", "description": "Titre exact de l'œuvre à chercher"}
+                    "mood_keyword": {"type": "string", "description": "Mot-clé représentant l'humeur"}
                 },
-                "required": ["work_title"],
+                "required": ["mood_keyword"],
             },
         },
     },
@@ -152,10 +155,10 @@ def evaluate_response(response: str) -> float:
 
 
 def _run_tool(name: str, args: dict, mood: str) -> str:
+    if name == "search_manga":
+        return search_manga(args.get("query", mood))
     if name == "search_literature":
         return search_literature(args.get("mood_keyword", mood))
-    if name == "search_reading_link":
-        return search_reading_link(args.get("work_title", ""))
     return "Outil inconnu."
 
 
@@ -176,20 +179,24 @@ def agent_handler(mood: str) -> dict:
         {
             "role": "system",
             "content": (
-                "Tu es un Bibliothécaire de l'Humeur, chaleureux et cultivé. "
-                "L'utilisateur décrit son état d'esprit ; tu recommandes UNE œuvre à lire.\n"
-                "Procède ainsi :\n"
-                "1. Appelle 'search_literature' pour obtenir des candidats adaptés à l'humeur, "
-                "puis choisis l'œuvre la plus pertinente (pas forcément la première).\n"
-                "2. Tu peux appeler 'search_reading_link' UNE fois avec le titre choisi pour trouver "
-                "un lien de lecture gratuit. C'est FACULTATIF : s'il ne renvoie pas de lien, "
-                "n'insiste pas et ne le rappelle pas.\n"
-                "3. Rédige ta réponse finale en français, en Markdown, EXACTEMENT ainsi :\n"
-                "**<Titre>** — <Auteur>\n"
-                "Puis 2 à 3 phrases expliquant pourquoi cette œuvre correspond à l'humeur décrite.\n"
-                "Enfin une ligne « 📖 Lire : <lien> » si un lien gratuit existe ; sinon "
-                "« 📖 Où la trouver : <fiche OpenLibrary, bibliothèque ou librairie> ».\n"
-                "Reste bienveillant, concret et concis."
+                "Tu es un Bibliothécaire de l'Humeur spécialisé dans le MANGA, chaleureux et cultivé. "
+                "L'utilisateur décrit son humeur ; tu recommandes 1 à 2 mangas qui lui correspondent, et POURQUOI.\n"
+                "Mission : montrer que le manga n'est pas réservé aux enfants. Mais la PERTINENCE par rapport "
+                "à l'humeur prime toujours : shōnen comme seinen sont les bienvenus (un shōnen comme Naruto "
+                "peut parfaitement convenir).\n"
+                "Méthode :\n"
+                "1. Pense à des mangas dont le TON et les THÈMES collent à l'humeur décrite.\n"
+                "2. Appelle 'search_manga' (titre ou mot-clé) pour vérifier chaque titre envisagé et obtenir sa "
+                "démographie, sa note et son lien. Préfère les œuvres bien notées et connues ; écarte celles "
+                "qui ont très peu de votes.\n"
+                "3. Pour CHAQUE manga retenu (1 ou 2), écris en français, en Markdown, ainsi :\n"
+                "**<Titre>** — <Auteur> · <Démographie> · ⭐ <note>/10\n"
+                "- Pourquoi toi, maintenant : 1 à 2 phrases reliant explicitement le manga à l'humeur décrite.\n"
+                "- Le moment à guetter : UN moment, arc ou scène PRÉCIS à vivre, et l'émotion qu'il procure "
+                "(jamais un simple résumé de l'intrigue).\n"
+                "- 📖 Fiche : <lien>\n"
+                "Ne donne jamais seulement un synopsis. Reste concret et bienveillant. "
+                "Tu peux terminer par UNE ligne optionnelle suggérant un livre équivalent (via 'search_literature')."
             ),
         },
         {"role": "user", "content": mood},

@@ -1,9 +1,11 @@
 # Mood Librarian Agent — Bibliothécaire de l'Humeur
 
-An agentic AI that recommends literary works based on the user's mood. The user
-describes their state of mind, and the agent finds a matching book and a link to
-read it, justifying its choice. Built as a FastAPI service with a ReAct-style
-tool-calling loop on top of a Groq-hosted LLM.
+An agentic AI that recommends **manga** based on the user's mood — and explains
+*why*, pointing to a specific moment worth reading for. The guiding idea: manga
+aren't only for children. The user describes how they feel, and the agent picks
+one or two fitting titles (shōnen or seinen), justifies each against the mood,
+and links to them. Books are offered as an optional secondary suggestion. Built
+as a FastAPI service with a ReAct-style tool-calling loop on a Groq-hosted LLM.
 
 > ⚠️ Recommendations are AI-generated and are **not** medical or psychological
 > advice. See [DISCLAIMER.md](DISCLAIMER.md) and [PRIVACY.md](PRIVACY.md).
@@ -12,8 +14,9 @@ tool-calling loop on top of a Groq-hosted LLM.
 
 - **ReAct agent loop** — the LLM reasons and calls tools iteratively (`agent.py`).
 - **Tools** (`tools.py`):
-  - `search_literature` — finds works via the OpenLibrary API.
-  - `search_reading_link` — finds free read/borrow links via OpenLibrary + Internet Archive.
+  - `search_manga` — finds/verifies manga via MyAnimeList (Jikan): demographic, genres, rating, link.
+  - `search_literature` — secondary: finds books via the OpenLibrary API.
+  - `search_reading_link` — free book read/borrow links via OpenLibrary + Internet Archive (books phase).
 - **Safety guardrail** — accent-insensitive detection of self-harm / crisis
   language, returning concrete crisis resources instead of a recommendation.
 - **Hardened API** — optional API-key auth, per-IP rate limiting, CORS control,

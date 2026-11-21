@@ -108,7 +108,7 @@
   <div class="wrap">
     <header>
       <h1>📚 Bibliothécaire de l'Humeur</h1>
-      <p>Décrivez votre humeur, recevez une œuvre à lire.</p>
+      <p>Décrivez votre humeur, recevez un manga à lire — et pourquoi.</p>
     </header>
 
     <main class="card">
@@ -119,7 +119,7 @@
           aria-describedby="count"></textarea>
         <div class="row">
           <span class="count" id="count" aria-live="polite">0 / 500</span>
-          <button type="submit" id="submit">Trouver un livre</button>
+          <button type="submit" id="submit">Trouver un manga</button>
         </div>
       </form>
 
@@ -230,7 +230,7 @@
       } finally {
         clearTimeout(wakeTimer);
         submit.disabled = false;
-        submit.textContent = "Trouver un livre";
+        submit.textContent = "Trouver un manga";
       }
     });
   </script>

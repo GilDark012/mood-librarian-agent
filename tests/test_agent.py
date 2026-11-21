@@ -7,7 +7,7 @@ import agent
 def _tool_call_response():
     tc = SimpleNamespace(
         id="call_1",
-        function=SimpleNamespace(name="search_literature", arguments="{}"),
+        function=SimpleNamespace(name="search_manga", arguments="{}"),
     )
     message = SimpleNamespace(content=None, tool_calls=[tc])
     return SimpleNamespace(choices=[SimpleNamespace(message=message)],
@@ -26,17 +26,16 @@ def test_forces_final_answer_when_loop_exhausts(monkeypatch):
     def fake_create(**kwargs):
         # The forced final call is made WITHOUT tools.
         if "tools" not in kwargs:
-            return _text_response("Je te conseille 'Candide' de Voltaire, car il est léger.")
+            return _text_response("**Naruto** — Masashi Kishimoto · Shōnen. À lire pour son cœur.")
         return _tool_call_response()  # loop iterations: always ask for a tool
 
     monkeypatch.setattr(agent.client.chat.completions, "create", fake_create)
-    monkeypatch.setattr(agent, "search_literature", lambda *a, **k: "Titre: Candide")
-    monkeypatch.setattr(agent, "search_reading_link", lambda *a, **k: "Aucun lien disponible.")
+    monkeypatch.setattr(agent, "search_manga", lambda *a, **k: "Titre: Naruto | Démographie: Shounen")
 
-    out = agent.agent_handler("je me sens joyeux")
+    out = agent.agent_handler("je me sens motivé")
 
     assert out["status"] == "success"
-    assert "Candide" in out["recommendation"]
+    assert "Naruto" in out["recommendation"]
     assert "interrompue" not in out["recommendation"].lower()
 
 
