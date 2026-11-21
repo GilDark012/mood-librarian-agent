@@ -92,6 +92,7 @@
     }
     .error { color: var(--danger-text); }
     .waking { color: var(--muted); }
+    .pill { display: inline-block; padding: 0 8px; border-radius: 999px; background: rgba(99,91,255,0.14); font-size: 0.82em; white-space: nowrap; }
     .meta { color: var(--muted); font-size: 0.82rem; margin-top: 12px; }
     footer { color: var(--muted); font-size: 0.8rem; text-align: center; margin: 22px 0; }
     footer a { color: var(--muted); }
@@ -153,7 +154,7 @@
     // safe links. Built with text nodes / elements only (no innerHTML).
     function render(text) {
       const frag = document.createDocumentFragment();
-      const re = /\*\*(.+?)\*\*|(https?:\/\/[^\s]+)/g;
+      const re = /\*\*(.+?)\*\*|(https?:\/\/[^\s]+)|(⭐\s*[0-9][0-9.,]*(?:\s*\/\s*10)?)|\b(Seinen|Shōnen|Shonen|Shōjo|Shojo|Josei|Kodomo)\b/g;
       let last = 0, m;
       while ((m = re.exec(text)) !== null) {
         if (m.index > last) frag.appendChild(document.createTextNode(text.slice(last, m.index)));
@@ -161,13 +162,18 @@
           const strong = document.createElement("strong");
           strong.textContent = m[1];
           frag.appendChild(strong);
-        } else {
+        } else if (m[2] !== undefined) {
           const a = document.createElement("a");
           a.href = m[2];
           a.textContent = m[2];
           a.target = "_blank";
           a.rel = "noopener noreferrer";
           frag.appendChild(a);
+        } else {
+          const span = document.createElement("span");
+          span.className = "pill";
+          span.textContent = m[3] !== undefined ? m[3] : m[4];
+          frag.appendChild(span);
         }
         last = re.lastIndex;
       }
