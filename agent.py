@@ -354,9 +354,11 @@ def journey_handler(current_mood: str, desired_mood: str = "") -> dict:
         stages, tokens = _plan_mood_arc(current_mood, desired_mood)
         total_tokens += tokens
 
-        # 2. Execute: one manga search per stage.
+        # 2. Execute: one manga search per stage, paced to respect Jikan's rate limit.
         stage_blocks = []
         for i, stage in enumerate(stages, 1):
+            if i > 1:
+                time.sleep(0.8)
             query = stage.get("search_query") or current_mood
             candidates = search_manga(query)
             stage_blocks.append(
