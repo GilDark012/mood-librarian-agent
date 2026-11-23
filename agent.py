@@ -292,51 +292,18 @@ def agent_handler(mood: str) -> dict:
         }
 
 
-# --- Mood Journey: a plan-and-execute agent that builds an ordered reading arc ---
-
-def _extract_json(text: str) -> dict:
-    """Best-effort parse of a single JSON object from an LLM reply."""
-    try:
-        return json.loads(text)
-    except Exception:
-        match = re.search(r"\{.*\}", text, re.DOTALL)
-        if match:
-            try:
-                return json.loads(match.group(0))
-            except Exception:
-                return {}
-    return {}
-
-
-def _plan_mood_arc(current_mood: str, desired_mood: str) -> tuple[list[dict], int]:
-    """Phase 1 — plan a 2-3 stage emotional reading arc. Returns (stages, tokens)."""
-    target = desired_mood.strip() or "un mieux-être doux et apaisé"
-    messages = [
-        {
-            "role": "system",
-            "content": (
-                "Tu conçois un PARCOURS de lecture en manga qui fait évoluer l'utilisateur de son "
-                "humeur actuelle vers l'humeur souhaitée. Réponds UNIQUEMENT par un JSON valide, sans "
-                "aucun texte autour, au format exact :\n"
-                '{"stages":[{"label":"titre court","search_query":"mots-clés manga","note":"apport émotionnel"}]}\n'
-                "Donne 2 à 3 étapes ORDONNÉES accompagnant la transition (étape 1 = rencontrer l'humeur "
-                "actuelle ; dernière étape = l'humeur souhaitée). 'search_query' est un thème/genre de "
-                "manga, pas une phrase."
-            ),
-        },
-        {"role": "user", "content": f"Humeur actuelle : {current_mood}\nHumeur souhaitée : {target}"},
-    ]
-    resp = client.chat.completions.create(model=settings.groq_model, messages=messages)
-    tokens = resp.usage.total_tokens if resp.usage else 0
-    data = _extract_json(resp.choices[0].message.content or "")
-    stages = data.get("stages") if isinstance(data, dict) else None
-    if not isinstance(stages, list) or not stages:
-        stages = [{"label": "Pour ton humeur", "search_query": current_mood, "note": ""}]
-    return stages[: settings.max_journey_stages], tokens
-
+# --- Mood Journey: a single-call agent that composes an ordered reading arc ---
+# It uses the model's own manga knowledge (well-known titles) and links to
+# MyAnimeList *search* URLs, making NO live manga-API calls. This keeps it fast
+# and reliable even when the shared host IP is rate-limited by Jikan (the
+# single-recommendation mode still uses live, verified MyAnimeList data).
 
 def journey_handler(current_mood: str, desired_mood: str = "") -> dict:
-    """Plan-and-execute: build an ordered manga reading pathway. Never raises."""
+    """Compose an ordered 2-3 manga reading pathway (current -> desired mood).
+
+    Never raises. One LLM call; demographics/ratings come from the model's
+    knowledge of well-known manga.
+    """
     t0 = time.time()
 
     # Safety guardrail on BOTH inputs.
@@ -347,71 +314,44 @@ def journey_handler(current_mood: str, desired_mood: str = "") -> dict:
             "latency_s": round(time.time() - t0, 3),
         }
 
+    target = desired_mood.strip() or "un mieux-être doux et apaisé"
+    messages = [
+        {
+            "role": "system",
+            "content": (
+                "Tu es un Bibliothécaire de l'Humeur spécialisé dans le MANGA. Conçois un PARCOURS DE "
+                "LECTURE ordonné de 2 à 3 mangas qui accompagne l'utilisateur de son humeur actuelle "
+                "vers l'humeur souhaitée (étape 1 = rencontrer l'humeur actuelle ; dernière étape = "
+                "l'humeur souhaitée).\n"
+                "Mission : montrer que le manga n'est pas réservé aux enfants ; shōnen comme seinen "
+                "sont les bienvenus, la pertinence prime.\n"
+                "N'utilise QUE des mangas CÉLÈBRES que tu connais avec certitude (évite les titres "
+                "obscurs ou inventés). Écris en français, en Markdown. Pour CHAQUE étape :\n"
+                "**Étape N — <rôle de l'étape>**\n"
+                "**<Titre>** — <Auteur> · <Démographie> · ⭐ <note approximative>/10\n"
+                "- Pourquoi cette étape : 1 phrase sur son apport et comment elle fait avancer l'humeur.\n"
+                "- Le moment à guetter : 1 phrase sur un moment, arc ou scène précis.\n"
+                "- 📖 Fiche : https://myanimelist.net/manga.php?q=<titre, espaces remplacés par des +>\n"
+                "Termine par UNE phrase résumant l'arc global. Concret, bienveillant et concis."
+            ),
+        },
+        {"role": "user", "content": f"Humeur actuelle : {current_mood}\nHumeur souhaitée : {target}"},
+    ]
+
     try:
-        total_tokens = 0
-
-        # 1. Plan the arc.
-        stages, tokens = _plan_mood_arc(current_mood, desired_mood)
-        total_tokens += tokens
-
-        # 2. Execute: one manga search per stage, paced to respect Jikan's rate limit.
-        stage_blocks = []
-        for i, stage in enumerate(stages, 1):
-            if i > 1:
-                time.sleep(1.5)
-            query = stage.get("search_query") or current_mood
-            candidates = search_manga(query)
-            stage_blocks.append(
-                f"Étape {i} — {stage.get('label', '')} (but : {stage.get('note', '')})\n"
-                f"Candidats : {candidates}"
-            )
-        arc_text = "\n\n".join(stage_blocks)
-
-        # If every stage search failed (e.g. Jikan throttled), fail gracefully
-        # instead of letting the model produce a confused refusal.
-        if not any("Titre:" in block for block in stage_blocks):
-            return {
-                "status": "error",
-                "message": "Le service de recherche de mangas est momentanément saturé. Réessaie dans un instant.",
-            }
-
-        # 3. Compose the ordered journey.
-        target = desired_mood.strip() or "un mieux-être doux"
-        compose_messages = [
-            {
-                "role": "system",
-                "content": (
-                    "Tu es un Bibliothécaire de l'Humeur. À partir des étapes d'un parcours et des mangas "
-                    "candidats de chaque étape, rédige un PARCOURS DE LECTURE ordonné en français (Markdown). "
-                    "Pour CHAQUE étape, choisis UN manga pertinent et bien noté parmi ses candidats, puis :\n"
-                    "**Étape N — <label>**\n"
-                    "**<Titre>** — <Auteur> · <Démographie> · ⭐ <note>/10\n"
-                    "- Pourquoi cette étape : 1 phrase sur son apport et comment elle fait avancer l'humeur.\n"
-                    "- Le moment à guetter : 1 phrase sur un moment précis.\n"
-                    "- 📖 Fiche : copie EXACTEMENT le lien du manga (ne le modifie ni ne l'omets).\n"
-                    "Termine par UNE phrase résumant l'arc global. Concret et concis ; n'invente aucun manga "
-                    "absent des candidats."
-                ),
-            },
-            {
-                "role": "user",
-                "content": f"Humeur actuelle : {current_mood}\nHumeur souhaitée : {target}\n\n{arc_text}",
-            },
-        ]
-        comp_resp = client.chat.completions.create(model=settings.groq_model, messages=compose_messages)
-        if comp_resp.usage:
-            total_tokens += comp_resp.usage.total_tokens
-        journey = comp_resp.choices[0].message.content or ""
+        resp = client.chat.completions.create(model=settings.groq_model, messages=messages)
+        tokens = resp.usage.total_tokens if resp.usage else 0
+        journey = resp.choices[0].message.content or ""
         if not journey:
             journey = "Désolé, je n'ai pas réussi à construire un parcours. Réessaie."
 
         latency = round(time.time() - t0, 3)
-        logger.info("journey ok: latency=%ss tokens=%s stages=%s", latency, total_tokens, len(stages))
+        logger.info("journey ok: latency=%ss tokens=%s", latency, tokens)
         return {
             "status": "success",
             "journey": journey,
             "disclaimer": DISCLAIMER,
-            "metrics": {"latency_s": latency, "total_tokens": total_tokens, "stages": len(stages)},
+            "metrics": {"latency_s": latency, "total_tokens": tokens},
         }
     except Exception:
         logger.exception("journey_handler failed")
