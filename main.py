@@ -64,6 +64,30 @@ def _rate_limit_handler(request: Request, exc: RateLimitExceeded):
     return JSONResponse(status_code=429, content={"detail": "Trop de requêtes. Réessayez plus tard."})
 
 
+# Baseline security headers on every response (clickjacking, sniffing, referrer).
+_SECURITY_HEADERS = {
+    "X-Content-Type-Options": "nosniff",
+    "X-Frame-Options": "DENY",
+    "Referrer-Policy": "no-referrer",
+    "Permissions-Policy": "geolocation=(), microphone=(), camera=()",
+    "Content-Security-Policy": (
+        "default-src 'self'; "
+        "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
+        "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
+        "img-src 'self' data: https://fastapi.tiangolo.com; "
+        "connect-src 'self'; frame-ancestors 'none'; base-uri 'self'"
+    ),
+}
+
+
+@app.middleware("http")
+async def _add_security_headers(request: Request, call_next):
+    response = await call_next(request)
+    for key, value in _SECURITY_HEADERS.items():
+        response.headers.setdefault(key, value)
+    return response
+
+
 # --- Auth: require X-API-Key only when an API key is configured. ---
 _api_key_header = APIKeyHeader(name="X-API-Key", auto_error=False)
 
@@ -106,6 +130,7 @@ def health_check():
 
 @app.post("/recommend", dependencies=[Depends(require_api_key)])
 @limiter.limit(settings.rate_limit)
+@limiter.limit(settings.rate_limit_daily)
 def recommend_books(request: Request, body: MoodRequest):
     result = agent_handler(body.mood)
     if result.get("status") == "error":
@@ -115,6 +140,7 @@ def recommend_books(request: Request, body: MoodRequest):
 
 @app.post("/journey", dependencies=[Depends(require_api_key)])
 @limiter.limit(settings.rate_limit)
+@limiter.limit(settings.rate_limit_daily)
 def mood_journey(request: Request, body: JourneyRequest):
     result = journey_handler(body.current_mood, body.desired_mood)
     if result.get("status") == "error":
