@@ -2,6 +2,7 @@
 
 [![CI](https://github.com/GilDark012/mood-librarian-agent/actions/workflows/ci.yml/badge.svg)](https://github.com/GilDark012/mood-librarian-agent/actions/workflows/ci.yml)
 [![Live](https://img.shields.io/badge/live-mood--librarian.onrender.com-4f46e5)](https://mood-librarian.onrender.com)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 An agentic AI that recommends **manga** based on the user's mood — and explains
 *why*, pointing to a specific moment worth reading for. The guiding idea: manga
@@ -120,6 +121,13 @@ The repo includes a [`render.yaml`](render.yaml) blueprint.
   runs → merge once green → Render deploys automatically.
 - `main` is protected: a pull request with passing CI is required before changes
   reach production.
+
+## License & author
+
+Created and maintained by **Gil Allen Mounzeo** ([@GilDark012](https://github.com/GilDark012)).
+
+Licensed under the **MIT License** — you may reuse the code with attribution.
+See [LICENSE](LICENSE). © 2026 Gil Allen Mounzeo.
 
 ## Project structure
 
