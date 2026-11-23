@@ -14,6 +14,7 @@ from slowapi import Limiter
 from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
 
+import stats
 from agent import DISCLAIMER, agent_handler, journey_handler
 from config import settings
 
@@ -61,6 +62,7 @@ app.add_middleware(
 
 @app.exception_handler(RateLimitExceeded)
 def _rate_limit_handler(request: Request, exc: RateLimitExceeded):
+    stats.record_rate_limited()
     return JSONResponse(status_code=429, content={"detail": "Trop de requêtes. Réessayez plus tard."})
 
 
@@ -128,11 +130,23 @@ def health_check():
     return {"status": "ok"}
 
 
+def _record_stats(endpoint: str, result: dict) -> None:
+    metrics = result.get("metrics", {})
+    latency_s = metrics.get("latency_s") or result.get("latency_s") or 0
+    stats.record(
+        endpoint,
+        result.get("status", "error"),
+        tokens=metrics.get("total_tokens", 0) or 0,
+        latency_ms=int(latency_s * 1000),
+    )
+
+
 @app.post("/recommend", dependencies=[Depends(require_api_key)])
 @limiter.limit(settings.rate_limit)
 @limiter.limit(settings.rate_limit_daily)
 def recommend_books(request: Request, body: MoodRequest):
     result = agent_handler(body.mood)
+    _record_stats("recommend", result)
     if result.get("status") == "error":
         return JSONResponse(status_code=502, content=result)
     return result
@@ -143,6 +157,18 @@ def recommend_books(request: Request, body: MoodRequest):
 @limiter.limit(settings.rate_limit_daily)
 def mood_journey(request: Request, body: JourneyRequest):
     result = journey_handler(body.current_mood, body.desired_mood)
+    _record_stats("journey", result)
     if result.get("status") == "error":
         return JSONResponse(status_code=502, content=result)
     return result
+
+
+_stats_header = APIKeyHeader(name="X-Stats-Token", auto_error=False)
+
+
+@app.get("/stats")
+def get_stats(token: str | None = Security(_stats_header)):
+    # Hidden unless a stats token is configured and matches (404 avoids leaking it).
+    if not settings.stats_token or token != settings.stats_token:
+        raise HTTPException(status_code=404, detail="Not found")
+    return stats.snapshot()
