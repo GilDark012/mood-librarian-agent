@@ -27,8 +27,9 @@ class Settings(BaseSettings):
     api_key: str = Field(default="")
     # Comma-separated list of allowed CORS origins, or "*" for any.
     allowed_origins: str = Field(default="*")
-    # SlowAPI rate limit applied to /recommend, e.g. "10/minute".
+    # SlowAPI per-IP rate limits applied to the agent endpoints.
     rate_limit: str = Field(default="10/minute")
+    rate_limit_daily: str = Field(default="200/day")
 
     # --- Request limits / reliability ---
     max_mood_length: int = Field(default=500, ge=1)
