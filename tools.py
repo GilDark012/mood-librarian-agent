@@ -19,7 +19,8 @@ logger = logging.getLogger(__name__)
 OPENLIBRARY_URL = "https://openlibrary.org/search.json"
 JIKAN_URL = "https://api.jikan.moe/v4/manga"
 HTTP_TIMEOUT = 6
-JIKAN_RETRY_WAIT = 0.6  # Jikan rate-limits aggressively; back off and retry once.
+JIKAN_TIMEOUT = 10  # Jikan throttles rather than 429s; give throttled calls room.
+JIKAN_RETRY_WAIT = 1.0  # back off and retry once on failure.
 
 
 def search_manga(query: str) -> str:
@@ -36,7 +37,7 @@ def search_manga(query: str) -> str:
             res = requests.get(
                 JIKAN_URL,
                 params={"q": query, "limit": 6, "sfw": "true"},
-                timeout=HTTP_TIMEOUT,
+                timeout=JIKAN_TIMEOUT,
             )
             res.raise_for_status()
             data = res.json().get("data", [])

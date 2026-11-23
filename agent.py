@@ -358,7 +358,7 @@ def journey_handler(current_mood: str, desired_mood: str = "") -> dict:
         stage_blocks = []
         for i, stage in enumerate(stages, 1):
             if i > 1:
-                time.sleep(0.8)
+                time.sleep(1.5)
             query = stage.get("search_query") or current_mood
             candidates = search_manga(query)
             stage_blocks.append(
@@ -366,6 +366,14 @@ def journey_handler(current_mood: str, desired_mood: str = "") -> dict:
                 f"Candidats : {candidates}"
             )
         arc_text = "\n\n".join(stage_blocks)
+
+        # If every stage search failed (e.g. Jikan throttled), fail gracefully
+        # instead of letting the model produce a confused refusal.
+        if not any("Titre:" in block for block in stage_blocks):
+            return {
+                "status": "error",
+                "message": "Le service de recherche de mangas est momentanément saturé. Réessaie dans un instant.",
+            }
 
         # 3. Compose the ordered journey.
         target = desired_mood.strip() or "un mieux-être doux"
