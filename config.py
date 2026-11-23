@@ -37,6 +37,17 @@ class Settings(BaseSettings):
     max_agent_steps: int = Field(default=3, ge=1)
     max_journey_stages: int = Field(default=3, ge=1)
 
+    # --- Statistics ---
+    # If set, GET /stats requires this value in the `X-Stats-Token` header
+    # (otherwise /stats is disabled and returns 404).
+    stats_token: str = Field(default="")
+    # Durable counters via Upstash Redis REST (optional). Without these, stats
+    # are kept in memory and reset when the instance restarts.
+    upstash_redis_rest_url: str = Field(default="")
+    upstash_redis_rest_token: str = Field(default="")
+    # Rough blended Groq price per 1M tokens, for the cost estimate in /stats.
+    cost_per_mtoken_usd: float = Field(default=0.30, ge=0)
+
     @property
     def origins_list(self) -> list[str]:
         if self.allowed_origins.strip() == "*":

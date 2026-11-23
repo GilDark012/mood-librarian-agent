@@ -90,6 +90,21 @@ def test_journey_requires_current_mood(client):
     assert r.status_code == 422
 
 
+def test_stats_hidden_without_token(client):
+    r = client.get("/stats")
+    assert r.status_code == 404
+
+
+def test_stats_with_token(client, monkeypatch):
+    monkeypatch.setattr(config.settings, "stats_token", "s3cr3t")
+    r = client.get("/stats", headers={"X-Stats-Token": "s3cr3t"})
+    assert r.status_code == 200
+    body = r.json()
+    assert "requests" in body and "estimated_cost_usd" in body and "rate_limited" in body
+    # Wrong token stays hidden.
+    assert client.get("/stats", headers={"X-Stats-Token": "nope"}).status_code == 404
+
+
 def test_api_key_enforced_when_configured(client, monkeypatch):
     monkeypatch.setattr(config.settings, "api_key", "secret")
     # No header -> rejected.
